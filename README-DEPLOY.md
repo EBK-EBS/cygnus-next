@@ -2,7 +2,7 @@
 
 Push a `master` → GitHub Actions compila, publica la imagen en GHCR y la despliega en el servidor.
 
-**URL final:** http://cygnus-next.129-158-213-189.nip.io/
+**URL final:** https://cygnus-next.129-158-213-189.nip.io/
 
 ## Arquitectura del pipeline
 
@@ -12,10 +12,11 @@ push a master
   → docker build multi-stage (Node 22 → Nginx, puerto 80)
   → push a GHCR: ghcr.io/<org>/<repo>:sha-<commit>
   → SSH al servidor (ubuntu@129.158.213.189)
-  → Nginx publica el hostname y proxifica al puerto local 8100
+  → Nginx publica el hostname por HTTPS y proxifica al puerto local 8100
+  → Certbot emite o renueva el certificado Let’s Encrypt
   → docker pull + docker run en 127.0.0.1:8100 (restart unless-stopped, límites CPU/RAM)
   → health check local + rollback dentro del servidor
-  → health check público HTTP 200 a través de Nginx (12 intentos × 5s)
+  → health check público HTTPS 200 a través de Nginx (12 intentos × 5s)
 ```
 
 ## Configuración única (una sola vez)
@@ -44,8 +45,10 @@ Usa un token de lectura de paquetes. Necesario porque la imagen del repo es priv
 
 El workflow enlaza `8100` únicamente a `127.0.0.1`, por lo que no es necesario abrir
 ese puerto en Oracle Cloud ni en el firewall. Nginx atiende el hostname público por
-el puerto 80 y reenvía internamente a la solución. Si otro contenedor ocupa `8100`,
-el despliegue lo indicará y se debe cambiar `SOLUTION_PORT` junto con el proxy.
+los puertos 80/443, termina TLS y reenvía internamente a la solución. El workflow
+instala `certbot` y `python3-certbot-nginx` si hacen falta, y emite o renueva el
+certificado automáticamente. Si otro contenedor ocupa `8100`, el despliegue lo
+indicará y se debe cambiar `SOLUTION_PORT` junto con el proxy.
 
 ## Operación diaria
 

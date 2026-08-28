@@ -18,7 +18,7 @@ env:
   SOLUTION_NAME: cygnus-next
   SOLUTION_PORT: 8100
   SOLUTION_PUBLIC_HOST: cygnus-next.129-158-213-189.nip.io
-  SOLUTION_PUBLIC_URL: http://cygnus-next.129-158-213-189.nip.io/
+  SOLUTION_PUBLIC_URL: https://cygnus-next.129-158-213-189.nip.io/
 
 jobs:
   build-and-deploy:
@@ -89,7 +89,35 @@ jobs:
 
           # El puerto de la solución queda cerrado al exterior. Nginx, que ya
           # atiende el tráfico público, es el único componente expuesto.
-          sudo tee "/tmp/$SOLUTION_NAME.nginx" >/dev/null <<NGINX
+          cert_dir="/etc/letsencrypt/live/$PUBLIC_HOST"
+          if [ -f "$cert_dir/fullchain.pem" ] && [ -f "$cert_dir/privkey.pem" ]; then
+              sudo tee "/tmp/$SOLUTION_NAME.nginx" >/dev/null <<NGINX
+          server {
+              listen 80;
+              listen [::]:80;
+              server_name $PUBLIC_HOST;
+              return 301 https://$PUBLIC_HOST\$request_uri;
+          }
+
+          server {
+              listen 443 ssl;
+              listen [::]:443 ssl;
+              server_name $PUBLIC_HOST;
+              ssl_certificate $cert_dir/fullchain.pem;
+              ssl_certificate_key $cert_dir/privkey.pem;
+
+              location / {
+                  proxy_pass http://127.0.0.1:$SOLUTION_PORT;
+                  proxy_http_version 1.1;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto \$scheme;
+              }
+          }
+          NGINX
+          else
+              sudo tee "/tmp/$SOLUTION_NAME.nginx" >/dev/null <<NGINX
           server {
               listen 80;
               listen [::]:80;
@@ -105,8 +133,27 @@ jobs:
               }
           }
           NGINX
+          fi
           sudo install -o root -g root -m 644 "/tmp/$SOLUTION_NAME.nginx" "$nginx_available"
           sudo ln -sfn "$nginx_available" "$nginx_enabled"
+          sudo nginx -t
+          sudo systemctl reload nginx
+
+          # El hostname debe tener un certificado propio. Sin esta etapa, el
+          # tráfico HTTPS cae en el virtual host por defecto del backend de
+          # control y termina mostrando su Whitelabel 404.
+          if ! command -v certbot >/dev/null 2>&1; then
+              echo "certbot no está instalado; instalándolo junto con el plugin Nginx..."
+              sudo apt-get update -qq
+              sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq certbot python3-certbot-nginx
+          fi
+          sudo certbot --nginx \
+              --non-interactive \
+              --agree-tos \
+              --register-unsafely-without-email \
+              --keep-until-expiring \
+              --redirect \
+              -d "$PUBLIC_HOST"
           sudo nginx -t
           sudo systemctl reload nginx
 
