@@ -1,6 +1,6 @@
 # ============================================================
 # Cygnus Next — CI/CD automático
-# Push a main → build → imagen GHCR (sha-immutable) → deploy SSH → health check
+# Push a master → build → imagen GHCR (sha-immutable) → deploy SSH → health check
 # ============================================================
 
 name: deploy-cygnus-next
@@ -17,6 +17,8 @@ permissions:
 env:
   SOLUTION_NAME: cygnus-next
   SOLUTION_PORT: 8100
+  SOLUTION_PUBLIC_HOST: cygnus-next.129-158-213-189.nip.io
+  SOLUTION_PUBLIC_URL: http://cygnus-next.129-158-213-189.nip.io/
 
 jobs:
   build-and-deploy:
@@ -75,41 +77,110 @@ jobs:
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           IMAGE: ${{ steps.image-name.outputs.image_name }}:sha-${{ github.sha }}
         run: |
-          ssh -i "$HOME/.ssh/ebk-deploy" -o IdentitiesOnly=yes "$DEPLOY_USER@$DEPLOY_HOST" \
-            "sudo docker rm -f ebk-solution-$SOLUTION_NAME >/dev/null 2>&1 || true; \
-             sudo docker pull $IMAGE && \
-             sudo docker run -d \
-               --name ebk-solution-$SOLUTION_NAME \
-               --restart unless-stopped \
-               --label com.ebk.solution=$SOLUTION_NAME \
-               --label com.ebk.solution.type=html \
-               --label com.ebk.solution.image=sha-${{ github.sha }} \
-               --cpus 1.00 \
-               --memory 768m \
-               -p 0.0.0.0:$SOLUTION_PORT:80 \
-               $IMAGE"
+          ssh -i "$HOME/.ssh/ebk-deploy" -o IdentitiesOnly=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "SOLUTION_NAME='$SOLUTION_NAME' SOLUTION_PORT='$SOLUTION_PORT' IMAGE='$IMAGE' PUBLIC_HOST='$SOLUTION_PUBLIC_HOST' bash -s" <<'REMOTE'
+          set -Eeuo pipefail
 
-      # ---------- Health check + rollback ----------
-      - name: Health check
+          container="ebk-solution-$SOLUTION_NAME"
+          nginx_available="/etc/nginx/sites-available/$SOLUTION_NAME.conf"
+          nginx_enabled="/etc/nginx/sites-enabled/$SOLUTION_NAME.conf"
+          previous_image="$(sudo docker inspect --format '{{.Config.Image}}' "$container" 2>/dev/null || true)"
+
+          # El puerto de la solución queda cerrado al exterior. Nginx, que ya
+          # atiende el tráfico público, es el único componente expuesto.
+          sudo tee "/tmp/$SOLUTION_NAME.nginx" >/dev/null <<NGINX
+          server {
+              listen 80;
+              listen [::]:80;
+              server_name $PUBLIC_HOST;
+
+              location / {
+                  proxy_pass http://127.0.0.1:$SOLUTION_PORT;
+                  proxy_http_version 1.1;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto \$scheme;
+              }
+          }
+          NGINX
+          sudo install -o root -g root -m 644 "/tmp/$SOLUTION_NAME.nginx" "$nginx_available"
+          sudo ln -sfn "$nginx_available" "$nginx_enabled"
+          sudo nginx -t
+          sudo systemctl reload nginx
+
+          sudo docker pull "$IMAGE"
+          sudo docker rm -f "$container" >/dev/null 2>&1 || true
+
+          rollback() {
+              sudo docker logs --tail 120 "$container" || true
+              sudo docker rm -f "$container" >/dev/null 2>&1 || true
+              if [ -n "$previous_image" ]; then
+                  echo "Restaurando imagen anterior: $previous_image"
+                  sudo docker run -d \
+                      --name "$container" \
+                      --restart unless-stopped \
+                      --label "com.ebk.solution=$SOLUTION_NAME" \
+                      --label com.ebk.solution.type=html \
+                      --label "com.ebk.solution.image=$previous_image" \
+                      --cpus 1.00 \
+                      --memory 768m \
+                      -p "127.0.0.1:${SOLUTION_PORT}:80" \
+                      "$previous_image" >/dev/null || true
+              fi
+          }
+
+          if ! sudo docker run -d \
+              --name "$container" \
+              --restart unless-stopped \
+              --label "com.ebk.solution=$SOLUTION_NAME" \
+              --label com.ebk.solution.type=html \
+              --label "com.ebk.solution.image=$IMAGE" \
+              --cpus 1.00 \
+              --memory 768m \
+              -p "127.0.0.1:${SOLUTION_PORT}:80" \
+              "$IMAGE" >/dev/null; then
+              echo "No se pudo iniciar $container; el puerto puede estar ocupado en el servidor." >&2
+              rollback
+              exit 1
+          fi
+
+          for i in $(seq 1 12); do
+              code="$(curl -sS -o /dev/null -w '%{http_code}' \
+                  --connect-timeout 3 --max-time 8 \
+                  "http://127.0.0.1:${SOLUTION_PORT}/" || true)"
+              if [ "$code" = "200" ]; then
+                  echo "Health local OK: http://127.0.0.1:${SOLUTION_PORT}/ (HTTP $code)"
+                  exit 0
+              fi
+              echo "Health local attempt $i/12: HTTP $code, waiting..."
+              sleep 5
+          done
+
+          echo "Health local failed — rolling back" >&2
+          rollback
+          exit 1
+          REMOTE
+
+      # ---------- Health check público a través de Nginx ----------
+      - name: Health check through Nginx
         env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          SOLUTION_PUBLIC_URL: ${{ env.SOLUTION_PUBLIC_URL }}
         run: |
           for i in $(seq 1 12); do
             code=$(curl -s -o /dev/null -w '%{http_code}' \
               --connect-timeout 5 --max-time 10 \
-              "http://$DEPLOY_HOST:$SOLUTION_PORT/" || true)
+              "$SOLUTION_PUBLIC_URL" || true)
             if [ "$code" = "200" ]; then
-              echo "Health OK: http://$DEPLOY_HOST:$SOLUTION_PORT (HTTP $code)"
+              echo "Health OK: $SOLUTION_PUBLIC_URL (HTTP $code)"
               exit 0
             fi
             echo "Attempt $i/12: HTTP $code, waiting..."
             sleep 5
           done
-          echo "Health check failed — rolling back"
-          ssh -i "$HOME/.ssh/ebk-deploy" -o IdentitiesOnly=yes "$DEPLOY_USER@$DEPLOY_HOST" \
-            "sudo docker rm -f ebk-solution-$SOLUTION_NAME >/dev/null 2>&1 || true"
+          echo "Health check through Nginx failed; el contenedor queda disponible para diagnóstico." >&2
           exit 1
 
       - name: Deployment URL
-        run: echo "✅ Desplegado en http://129.158.213.189:$SOLUTION_PORT"
+        run: echo "✅ Desplegado en $SOLUTION_PUBLIC_URL"

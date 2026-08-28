@@ -1,20 +1,21 @@
 # Despliegue automático — Cygnus Next
 
-Push a `main` → GitHub Actions compila, publica la imagen en GHCR y la despliega en el servidor.
+Push a `master` → GitHub Actions compila, publica la imagen en GHCR y la despliega en el servidor.
 
-**URL final:** http://129.158.213.189:8100
+**URL final:** http://cygnus-next.129-158-213-189.nip.io/
 
 ## Arquitectura del pipeline
 
 ```
-push a main
+push a master
   → npm ci + npm run build (typecheck)
   → docker build multi-stage (Node 22 → Nginx, puerto 80)
   → push a GHCR: ghcr.io/<org>/<repo>:sha-<commit>
   → SSH al servidor (ubuntu@129.158.213.189)
-  → docker pull + docker run (restart unless-stopped, límites CPU/RAM)
-  → health check HTTP 200 en / (12 intentos × 5s)
-  → fallo → rollback (remueve el contenedor roto)
+  → Nginx publica el hostname y proxifica al puerto local 8100
+  → docker pull + docker run en 127.0.0.1:8100 (restart unless-stopped, límites CPU/RAM)
+  → health check local + rollback dentro del servidor
+  → health check público HTTP 200 a través de Nginx (12 intentos × 5s)
 ```
 
 ## Configuración única (una sola vez)
@@ -39,25 +40,24 @@ sudo docker login ghcr.io
 
 Usa un token de lectura de paquetes. Necesario porque la imagen del repo es privada.
 
-### 3. Verificar que el contenedor actual no ocupa el puerto
+### 3. El puerto de Docker no se expone a Internet
 
-```bash
-sudo docker ps --format '{{.Names}} {{.Ports}}' | grep 8100
-```
-
-Si algo ocupa `8100`, cambia `SOLUTION_PORT` en `.github/workflows/ci-cd.yml`.
+El workflow enlaza `8100` únicamente a `127.0.0.1`, por lo que no es necesario abrir
+ese puerto en Oracle Cloud ni en el firewall. Nginx atiende el hostname público por
+el puerto 80 y reenvía internamente a la solución. Si otro contenedor ocupa `8100`,
+el despliegue lo indicará y se debe cambiar `SOLUTION_PORT` junto con el proxy.
 
 ## Operación diaria
 
-- **Desplegar:** `git push origin main`
+- **Desplegar:** `git push origin master`
 - **Ver estado:** GitHub → Actions → `deploy-cygnus-next`
 - **Logs del contenedor:** `sudo docker logs -f ebk-solution-cygnus-next`
 - **Forzar redeploy:** pestaña Actions → workflow → *Run workflow*
 
-## Rollback manual
+## Diagnóstico y rollback
 
 ```bash
-sudo docker rm -f ebk-solution-cygnus-next
-# El health check del pipeline ya remueve el contenedor roto automáticamente;
-# para volver a un SHA anterior, haz push de ese commit o usa el run anterior.
+sudo docker logs --tail 120 ebk-solution-cygnus-next
+# Si falla el health check local, el workflow restaura automáticamente la
+# imagen anterior. Un fallo únicamente en Nginx queda visible para diagnóstico.
 ```
