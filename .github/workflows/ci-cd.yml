@@ -1,0 +1,110 @@
+# ============================================================
+# Cygnus Next — CI/CD automático
+# Push a main → build → imagen GHCR (sha-immutable) → deploy SSH → health check
+# ============================================================
+
+name: deploy-cygnus-next
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  SOLUTION_NAME: cygnus-next
+  SOLUTION_PORT: 8100
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck & build
+        run: npm run build
+
+      # ---------- Imagen inmutable etiquetada con el SHA del commit ----------
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+          build-args: |
+            VITE_DEEPSEEK_API_KEY=${{ secrets.VITE_DEEPSEEK_API_KEY }}
+
+      # ---------- SSH al servidor ----------
+      - name: Configure SSH
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_KEY" > "$HOME/.ssh/ebk-deploy"
+          chmod 600 "$HOME/.ssh/ebk-deploy"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+
+      - name: Deploy to server
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          ssh -i "$HOME/.ssh/ebk-deploy" -o IdentitiesOnly=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+            "sudo docker rm -f ebk-solution-$SOLUTION_NAME >/dev/null 2>&1 || true; \
+             sudo docker pull ghcr.io/${{ github.repository }}:sha-${{ github.sha }} && \
+             sudo docker run -d \
+               --name ebk-solution-$SOLUTION_NAME \
+               --restart unless-stopped \
+               --label com.ebk.solution=$SOLUTION_NAME \
+               --label com.ebk.solution.type=html \
+               --label com.ebk.solution.image=sha-${{ github.sha }} \
+               --cpus 1.00 \
+               --memory 768m \
+               -p 0.0.0.0:$SOLUTION_PORT:80 \
+               ghcr.io/${{ github.repository }}:sha-${{ github.sha }}"
+
+      # ---------- Health check + rollback ----------
+      - name: Health check
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          for i in $(seq 1 12); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' \
+              --connect-timeout 5 --max-time 10 \
+              "http://$DEPLOY_HOST:$SOLUTION_PORT/" || true)
+            if [ "$code" = "200" ]; then
+              echo "Health OK: http://$DEPLOY_HOST:$SOLUTION_PORT (HTTP $code)"
+              exit 0
+            fi
+            echo "Attempt $i/12: HTTP $code, waiting..."
+            sleep 5
+          done
+          echo "Health check failed — rolling back"
+          ssh -i "$HOME/.ssh/ebk-deploy" -o IdentitiesOnly=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+            "sudo docker rm -f ebk-solution-$SOLUTION_NAME >/dev/null 2>&1 || true"
+          exit 1
+
+      - name: Deployment URL
+        run: echo "✅ Desplegado en http://129.158.213.189:$SOLUTION_PORT"
