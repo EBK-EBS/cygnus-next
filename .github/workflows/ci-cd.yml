@@ -142,10 +142,15 @@ jobs:
           # El hostname debe tener un certificado propio. Sin esta etapa, el
           # tráfico HTTPS cae en el virtual host por defecto del backend de
           # control y termina mostrando su Whitelabel 404.
-          if ! command -v certbot >/dev/null 2>&1; then
-              echo "certbot no está instalado; instalándolo junto con el plugin Nginx..."
+          if ! command -v certbot >/dev/null 2>&1 || \
+              ! sudo certbot plugins 2>/dev/null | grep -Eq '(^|[[:space:]])nginx([[:space:]]|$)'; then
+              echo "Instalando certbot y el plugin Nginx..."
               sudo apt-get update -qq
               sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq certbot python3-certbot-nginx
+          fi
+          if ! sudo certbot plugins 2>/dev/null | grep -Eq '(^|[[:space:]])nginx([[:space:]]|$)'; then
+              echo "El plugin Nginx de certbot no quedó disponible en el servidor." >&2
+              exit 1
           fi
           sudo certbot --nginx \
               --non-interactive \

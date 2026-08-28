@@ -46,8 +46,8 @@ Usa un token de lectura de paquetes. Necesario porque la imagen del repo es priv
 El workflow enlaza `8100` únicamente a `127.0.0.1`, por lo que no es necesario abrir
 ese puerto en Oracle Cloud ni en el firewall. Nginx atiende el hostname público por
 los puertos 80/443, termina TLS y reenvía internamente a la solución. El workflow
-instala `certbot` y `python3-certbot-nginx` si hacen falta, y emite o renueva el
-certificado automáticamente. Si otro contenedor ocupa `8100`, el despliegue lo
+verifica `certbot` y el plugin `python3-certbot-nginx`, instala lo que falte y emite o
+renueva el certificado automáticamente. Si otro contenedor ocupa `8100`, el despliegue lo
 indicará y se debe cambiar `SOLUTION_PORT` junto con el proxy.
 
 ## Operación diaria
