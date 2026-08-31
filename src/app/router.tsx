@@ -24,6 +24,9 @@ const AreasNegocioPage = lazy(() =>
 const ConstruccionPage = lazy(() =>
   import('@/features/construccion/ConstruccionPage').then((m) => ({ default: m.ConstruccionPage })),
 )
+const PersonasPage = lazy(() =>
+  import('@/features/personas/PersonasPage'),
+)
 
 function lazyPage(element: React.ReactNode) {
   return <Suspense fallback={<div className="p-8 text-muted">Cargando...</div>}>{element}</Suspense>
@@ -53,7 +56,7 @@ export const router = createBrowserRouter([
       { path: 'cartera-edades', element: lazyPage(<CarteraEdadesPage />) },
       { path: 'reporteador', element: lazyPage(<ReporteadorPage />) },
       { path: 'areas-negocio', element: lazyPage(<AreasNegocioPage />) },
-      { path: 'personas', element: lazyPage(<ConstruccionPage />) },
+      { path: 'personas', element: lazyPage(<PersonasPage />) },
       { path: 'construccion/:modulo', element: lazyPage(<ConstruccionPage />) },
       { path: '*', element: <DashboardPage /> },
     ],
