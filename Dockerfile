@@ -13,6 +13,10 @@ WORKDIR /app
 ARG VITE_DEEPSEEK_API_KEY
 ENV VITE_DEEPSEEK_API_KEY=$VITE_DEEPSEEK_API_KEY
 
+# URL pública de Transversales consumida por el cliente de autenticación.
+ARG VITE_TRANSVERSALES_API_URL=http://localhost:8080
+ENV VITE_TRANSVERSALES_API_URL=$VITE_TRANSVERSALES_API_URL
+
 # Instalar dependencias primero (aprovecha cache de capas)
 COPY package.json package-lock.json ./
 RUN npm ci

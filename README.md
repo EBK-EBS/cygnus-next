@@ -1,3 +1,29 @@
+# Cygnus Next
+
+## Desarrollo local
+
+Transversales se ejecuta en `http://localhost:8081` y Cygnus Next en
+`http://localhost:5174`, evitando el puerto utilizado por Civil Alpha.
+
+```powershell
+# Terminal 1 — Transversales (Java 21)
+cd C:\Users\User.admin\Documents\EBS\Transversales
+mvn spring-boot:run
+
+# Terminal 2 — Cygnus Next
+cd 'C:\Users\User.admin\Documents\EBS\Cygnus Next\interfaz'
+npm run dev
+```
+
+Abre `http://localhost:5174/` y usa estas credenciales de prueba:
+
+```text
+usuario: cygnus.test
+contraseña: CygnusNext123!
+```
+
+El tenant `cygnus-next` se envía internamente y no se muestra en pantalla.
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.

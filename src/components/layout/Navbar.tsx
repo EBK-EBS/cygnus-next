@@ -1,5 +1,6 @@
-import { Bell, Bot, CircleHelp, House, Moon, Sun, Users } from 'lucide-react'
+import { Bell, Bot, CircleHelp, House, LogOut, Moon, Sun, Users } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '@/components/auth/auth-context'
 import { Dropdown, DropdownHeader, DropdownItem } from '@/components/ui/Dropdown'
 import { useUIStore } from '@/store/uiStore'
 
@@ -12,12 +13,20 @@ const NAV_NOMBRE = '/images/Nombre CYGNUS-NEXT.png'
  */
 export function Navbar() {
   const navigate = useNavigate()
+  const { user, logout } = useAuth()
   const darkMode = useUIStore((s) => s.darkMode)
   const toggleDarkMode = useUIStore((s) => s.toggleDarkMode)
   const toggleSidebar = useUIStore((s) => s.toggleSidebar)
   const toggleRightSidebar = useUIStore((s) => s.toggleRightSidebar)
   const showToast = useUIStore((s) => s.showToast)
   const openModal = () => navigate('/asociados')
+  const userLabel = user?.displayName || user?.username || 'Usuario'
+  const userInitials = userLabel
+    .split(/\s+/)
+    .map((part) => part.charAt(0))
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
 
   return (
     <nav className="relative z-[1000] flex h-[50px] items-center justify-between border-b border-line bg-card px-5">
@@ -96,9 +105,9 @@ export function Navbar() {
         <Dropdown
           trigger={
             <div className="flex cursor-pointer items-center gap-2.5 text-sm font-medium text-ink">
-              <span>Marlon Mansás</span>
+              <span>{userLabel}</span>
               <span className="flex size-[30px] items-center justify-center rounded-full bg-[#6366f1] font-semibold text-white">
-                M
+                {userInitials || 'US'}
               </span>
             </div>
           }
@@ -111,8 +120,14 @@ export function Navbar() {
           <DropdownItem icon={<Users className="size-4" />} onClick={openModal}>
             Cambiar Asociado (Demo)
           </DropdownItem>
-          <DropdownItem>
-            <span className="text-danger">Salir</span>
+          <DropdownItem
+            icon={<LogOut className="size-4 text-danger" />}
+            onClick={() => {
+              logout()
+              navigate('/login', { replace: true })
+            }}
+          >
+            <span className="text-danger">Cerrar sesión</span>
           </DropdownItem>
         </Dropdown>
       </div>

@@ -19,6 +19,7 @@ env:
   SOLUTION_PORT: 8100
   SOLUTION_PUBLIC_HOST: cygnus-next.129-158-213-189.nip.io
   SOLUTION_PUBLIC_URL: https://cygnus-next.129-158-213-189.nip.io/
+  TRANSVERSALES_API_URL: https://transversales.129-158-213-189.nip.io
 
 jobs:
   build-and-deploy:
@@ -37,6 +38,8 @@ jobs:
         run: npm ci
 
       - name: Typecheck & build
+        env:
+          VITE_TRANSVERSALES_API_URL: ${{ env.TRANSVERSALES_API_URL }}
         run: npm run build
 
       # ---------- Imagen inmutable etiquetada con el SHA del commit ----------
@@ -59,6 +62,7 @@ jobs:
           tags: ${{ steps.image-name.outputs.image_name }}:sha-${{ github.sha }}
           build-args: |
             VITE_DEEPSEEK_API_KEY=${{ secrets.VITE_DEEPSEEK_API_KEY }}
+            VITE_TRANSVERSALES_API_URL=${{ env.TRANSVERSALES_API_URL }}
 
       # ---------- SSH al servidor ----------
       - name: Configure SSH

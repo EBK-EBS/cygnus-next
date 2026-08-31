@@ -1,7 +1,9 @@
 import { lazy, Suspense } from 'react'
 import { createBrowserRouter } from 'react-router-dom'
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
+import { LoginPage } from '@/features/auth/LoginPage'
 
 // Code-splitting: las vistas pesadas (recharts) se cargan bajo demanda
 const EstadoCuentaPage = lazy(() =>
@@ -29,8 +31,16 @@ function lazyPage(element: React.ReactNode) {
 
 export const router = createBrowserRouter([
   {
+    path: '/login',
+    element: <LoginPage />,
+  },
+  {
     path: '/',
-    element: <AppLayout />,
+    element: (
+      <ProtectedRoute>
+        <AppLayout />
+      </ProtectedRoute>
+    ),
     children: [
       { index: true, element: <DashboardPage /> },
       { path: 'dashboard', element: <DashboardPage /> },
