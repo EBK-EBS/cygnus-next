@@ -1,6 +1,6 @@
 import { useState, type ComponentType } from 'react'
 import type { Persona } from '@/data/types'
-import { usePersonasStore } from '@/store/personasStore'
+import { usePersonasStore, existeIdentificacionDuplicada } from '@/store/personasStore'
 import { useUIStore } from '@/store/uiStore'
 import { PersonaHeader } from './PersonaHeader'
 import { PersonaModuleForm } from './PersonaModuleForm'
@@ -55,9 +55,18 @@ interface ModuloConfig {
   validar?: (p: Persona) => string | null
 }
 
+/**
+ * PF-01: además de los obligatorios ya existentes, valida unicidad de
+ * `identificacion.numero` contra las Personas actualmente en memoria (ver
+ * `existeIdentificacionDuplicada` en `personasStore.ts` para el alcance y las
+ * limitaciones explícitas de esta validación).
+ */
 function validarIdentificacion(p: Persona): string | null {
   if (!p.identificacion.numero) return 'La identificación es obligatoria'
   if (!p.identificacion.tipoId) return 'El tipo de identificación es obligatorio'
+  if (existeIdentificacionDuplicada(usePersonasStore.getState().personas, p.identificacion.numero, p.id)) {
+    return 'Esta identificación ya está registrada para otra persona'
+  }
   return null
 }
 
