@@ -3,8 +3,10 @@ import { ArrowLeft, Save } from 'lucide-react'
 import { Card, CardHeader } from '@/components/ui/Card'
 import type { Persona, TipoPersona } from '@/data/types'
 import { crearPersonaVacia } from '@/data/personas-mock'
+import { usePersonasStore, existeIdentificacionDuplicada } from '@/store/personasStore'
 import { PersonaTabBar, pestanasParaTipo, type PersonaTabId } from './PersonaTabBar'
 import { PERSONA_TAB_COMPONENTS } from './tabs'
+import { validarBeneficiarios } from './tabs/FamiliarTab'
 
 interface PersonaFormProps {
   tipoInicial?: TipoPersona
@@ -46,9 +48,19 @@ export function PersonaForm({ tipoInicial = 'N', onGuardar, onCancelar }: Person
     const nuevosErrores: Record<string, string> = {}
     if (!form.identificacion.numero) nuevosErrores['identificacion.numero'] = 'La identificación es obligatoria'
     if (!form.identificacion.tipoId) nuevosErrores['identificacion.tipoId'] = 'El tipo de identificación es obligatorio'
+    // PF-01: validación frontend provisional de unicidad, ver `existeIdentificacionDuplicada`.
+    if (
+      form.identificacion.numero &&
+      existeIdentificacionDuplicada(usePersonasStore.getState().personas, form.identificacion.numero, form.id)
+    ) {
+      nuevosErrores['identificacion.numero'] = 'Esta identificación ya está registrada para otra persona'
+    }
     if (form.tipoPersona === 'N' && !form.nombres) nuevosErrores['nombres'] = 'Los nombres son obligatorios'
     if (form.tipoPersona === 'N' && !form.primerApellido) nuevosErrores['primerApellido'] = 'El primer apellido es obligatorio'
     if (form.tipoPersona === 'J' && !form.razonSocial) nuevosErrores['razonSocial'] = 'La razón social es obligatoria'
+    // PF-02: suma de porcentaje de beneficiarios, ver `validarBeneficiarios`.
+    const mensajeBeneficiarios = validarBeneficiarios(form.familiares)
+    if (mensajeBeneficiarios) nuevosErrores['familiares'] = mensajeBeneficiarios
     setErrores(nuevosErrores)
     return Object.keys(nuevosErrores).length === 0
   }
@@ -92,7 +104,13 @@ export function PersonaForm({ tipoInicial = 'N', onGuardar, onCancelar }: Person
         </div>
 
         <div className="flex-1" />
-        {hayErrores && <span className="text-xs text-danger">Revisa los campos obligatorios en la pestaña "{tabs[0].label}"</span>}
+        {hayErrores && (
+          <span className="text-xs text-danger">
+            {errores['identificacion.numero'] ??
+              errores['familiares'] ??
+              `Revisa los campos obligatorios en la pestaña "${tabs[0].label}"`}
+          </span>
+        )}
         <button
           onClick={handleGuardar}
           className="flex items-center gap-1.5 rounded-md bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90"

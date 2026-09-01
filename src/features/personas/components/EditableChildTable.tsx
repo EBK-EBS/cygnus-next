@@ -8,6 +8,13 @@ export interface ChildColumn<T> {
   header: string
   type?: ChildColumnType
   options?: CatalogoItem[]
+  /**
+   * PF-03: renderizado opcional de la celda en modo solo lectura, para columnas que
+   * necesitan una representación visual propia (p. ej. un `Badge`) en vez del texto
+   * plano genérico. Opcional y aditivo: las columnas que no lo definen conservan
+   * exactamente el comportamiento de siempre, en lectura y en edición.
+   */
+  render?: (row: T) => React.ReactNode
 }
 
 interface EditableChildTableProps<T extends { id: number }> {
@@ -124,6 +131,7 @@ function renderCelda<T>(
   const valor = row[c.key]
 
   if (!editable) {
+    if (c.render) return c.render(row)
     if (c.type === 'checkbox') return valor ? 'Sí' : 'No'
     if (typeof valor === 'number') return valor.toLocaleString('es-CO')
     return (valor as string) || '—'

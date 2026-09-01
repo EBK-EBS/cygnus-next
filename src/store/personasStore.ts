@@ -125,3 +125,19 @@ export function contarActivas(personas: Persona[]): number {
 export function buscarPersonaPorId(personas: Persona[], id: number): Persona | undefined {
   return personas.find((p) => p.id === id)
 }
+
+/**
+ * PF-01 — Validación frontend provisional de unicidad de identificación.
+ *
+ * Compara únicamente `identificacion.numero` (igual que `Val_Identif()` en el Legacy,
+ * que valida `C_IDENTIFICACION` como columna única sin cruzarla con el tipo de
+ * documento). No es una garantía de unicidad a nivel de todo el sistema: solo
+ * compara contra las Personas actualmente cargadas en memoria en este store — la
+ * fuente de verdad real deberá ser un backend futuro. La relación entre unicidad,
+ * tipo de identificación y formato del documento NO queda definida como decisión de
+ * dominio por esta función; solo replica, en el frontend, la regla ya observada en
+ * Legacy para el número de identificación.
+ */
+export function existeIdentificacionDuplicada(personas: Persona[], numero: string, idAExcluir?: number): boolean {
+  return personas.some((p) => p.identificacion.numero === numero && p.id !== idAExcluir)
+}
