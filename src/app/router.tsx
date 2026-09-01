@@ -25,7 +25,7 @@ const ConstruccionPage = lazy(() =>
   import('@/features/construccion/ConstruccionPage').then((m) => ({ default: m.ConstruccionPage })),
 )
 const PersonasPage = lazy(() =>
-  import('@/features/personas/PersonasPage'),
+  import('@/features/personas/PersonasPage').then((m) => ({ default: m.PersonasPage })),
 )
 const SeguridadPerfilesPage = lazy(() =>
   import('@/features/seguridad/PerfilesPage').then((m) => ({ default: m.PerfilesPage })),
