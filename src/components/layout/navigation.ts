@@ -36,6 +36,10 @@ export type NavRoute =
   | 'reporteador'
   | 'areas-negocio'
   | 'personas'
+  | 'seguridad-perfiles'
+  | 'seguridad-usuarios'
+  | 'seguridad-asignacion-oficina'
+  | 'seguridad-cambio-clave'
   | 'construccion'
 
 export interface NavLeaf {
@@ -317,8 +321,10 @@ export const NAV_TREE: NavNode[] = [
           {
             label: 'Gestion',
             children: [
-              { label: 'Admin.Perfiles', construccion: 'Admin. Perfiles' },
-              { label: 'Admin.Usuarios', construccion: 'Admin. Usuarios' },
+              { label: 'Admin.Perfiles', route: 'seguridad-perfiles' },
+              { label: 'Admin.Usuarios', route: 'seguridad-usuarios' },
+              { label: 'Asignación de Usuarios a Oficina', route: 'seguridad-asignacion-oficina' },
+              { label: 'Cambio de Clave', route: 'seguridad-cambio-clave' },
               { label: 'Areas de negocio', route: 'areas-negocio' },
               { label: 'Dominios de Negocio', construccion: 'Dominios de Negocio' },
               { label: 'Opciones de Negocio', construccion: 'Opciones de Negocio' },

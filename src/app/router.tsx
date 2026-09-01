@@ -27,6 +27,18 @@ const ConstruccionPage = lazy(() =>
 const PersonasPage = lazy(() =>
   import('@/features/personas/PersonasPage'),
 )
+const SeguridadPerfilesPage = lazy(() =>
+  import('@/features/seguridad/PerfilesPage').then((m) => ({ default: m.PerfilesPage })),
+)
+const SeguridadUsuariosPage = lazy(() =>
+  import('@/features/seguridad/UsuariosPage').then((m) => ({ default: m.UsuariosPage })),
+)
+const SeguridadAsignacionOficinaPage = lazy(() =>
+  import('@/features/seguridad/AsignacionOficinaPage').then((m) => ({ default: m.AsignacionOficinaPage })),
+)
+const SeguridadCambioClavePage = lazy(() =>
+  import('@/features/seguridad/CambioClavePage').then((m) => ({ default: m.CambioClavePage })),
+)
 
 function lazyPage(element: React.ReactNode) {
   return <Suspense fallback={<div className="p-8 text-muted">Cargando...</div>}>{element}</Suspense>
@@ -57,6 +69,10 @@ export const router = createBrowserRouter([
       { path: 'reporteador', element: lazyPage(<ReporteadorPage />) },
       { path: 'areas-negocio', element: lazyPage(<AreasNegocioPage />) },
       { path: 'personas', element: lazyPage(<PersonasPage />) },
+      { path: 'seguridad-perfiles', element: lazyPage(<SeguridadPerfilesPage />) },
+      { path: 'seguridad-usuarios', element: lazyPage(<SeguridadUsuariosPage />) },
+      { path: 'seguridad-asignacion-oficina', element: lazyPage(<SeguridadAsignacionOficinaPage />) },
+      { path: 'seguridad-cambio-clave', element: lazyPage(<SeguridadCambioClavePage />) },
       { path: 'construccion/:modulo', element: lazyPage(<ConstruccionPage />) },
       { path: '*', element: <DashboardPage /> },
     ],
