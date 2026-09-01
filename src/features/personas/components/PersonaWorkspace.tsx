@@ -14,7 +14,7 @@ import { JuridicaTab } from './tabs/JuridicaTab'
 import { PersonaContactoFields } from './tabs/PersonaContactoFields'
 import { PersonaDireccionesFields } from './tabs/PersonaDireccionesFields'
 import { LaboralTab } from './tabs/LaboralTab'
-import { FamiliarTab } from './tabs/FamiliarTab'
+import { FamiliarTab, validarBeneficiarios } from './tabs/FamiliarTab'
 import { CoopEstudiantilTab } from './tabs/CoopEstudiantilTab'
 import { RepresentantesTab } from './tabs/RepresentantesTab'
 import { CooperativaTab } from './tabs/CooperativaTab'
@@ -101,7 +101,7 @@ const MODULOS: ModuloConfig[] = [
   { id: 'contacto', title: 'Contacto', Contenido: PersonaContactoFields, width: 'half' },
   { id: 'direcciones', title: 'Direcciones', Contenido: PersonaDireccionesFields, width: 'half' },
   { id: 'laboral', title: 'Información Laboral', Contenido: LaboralTab, width: 'half', aplica: (p) => p.tipoPersona === 'N' },
-  { id: 'familiar', title: 'Información Familiar', Contenido: FamiliarTab, width: 'half', aplica: (p) => p.tipoPersona === 'N' },
+  { id: 'familiar', title: 'Información Familiar', Contenido: FamiliarTab, width: 'half', aplica: (p) => p.tipoPersona === 'N', validar: (p) => validarBeneficiarios(p.familiares) },
   { id: 'representantes', title: 'Representantes y Socios', Contenido: RepresentantesTab, width: 'half', aplica: (p) => p.tipoPersona === 'J' },
   { id: 'infoAcademica', title: 'Información Académica', Contenido: InfoAcademicaTab, width: 'half' },
   { id: 'coopEstudiantil', title: 'Coop. Estudiantil', Contenido: CoopEstudiantilTab, width: 'half', aplica: (p) => p.tipoPersona === 'N' },

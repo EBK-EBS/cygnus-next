@@ -6,6 +6,7 @@ import { crearPersonaVacia } from '@/data/personas-mock'
 import { usePersonasStore, existeIdentificacionDuplicada } from '@/store/personasStore'
 import { PersonaTabBar, pestanasParaTipo, type PersonaTabId } from './PersonaTabBar'
 import { PERSONA_TAB_COMPONENTS } from './tabs'
+import { validarBeneficiarios } from './tabs/FamiliarTab'
 
 interface PersonaFormProps {
   tipoInicial?: TipoPersona
@@ -57,6 +58,9 @@ export function PersonaForm({ tipoInicial = 'N', onGuardar, onCancelar }: Person
     if (form.tipoPersona === 'N' && !form.nombres) nuevosErrores['nombres'] = 'Los nombres son obligatorios'
     if (form.tipoPersona === 'N' && !form.primerApellido) nuevosErrores['primerApellido'] = 'El primer apellido es obligatorio'
     if (form.tipoPersona === 'J' && !form.razonSocial) nuevosErrores['razonSocial'] = 'La razón social es obligatoria'
+    // PF-02: suma de porcentaje de beneficiarios, ver `validarBeneficiarios`.
+    const mensajeBeneficiarios = validarBeneficiarios(form.familiares)
+    if (mensajeBeneficiarios) nuevosErrores['familiares'] = mensajeBeneficiarios
     setErrores(nuevosErrores)
     return Object.keys(nuevosErrores).length === 0
   }
@@ -102,7 +106,9 @@ export function PersonaForm({ tipoInicial = 'N', onGuardar, onCancelar }: Person
         <div className="flex-1" />
         {hayErrores && (
           <span className="text-xs text-danger">
-            {errores['identificacion.numero'] ?? `Revisa los campos obligatorios en la pestaña "${tabs[0].label}"`}
+            {errores['identificacion.numero'] ??
+              errores['familiares'] ??
+              `Revisa los campos obligatorios en la pestaña "${tabs[0].label}"`}
           </span>
         )}
         <button
