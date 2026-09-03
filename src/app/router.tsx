@@ -39,6 +39,9 @@ const SeguridadAsignacionOficinaPage = lazy(() =>
 const SeguridadCambioClavePage = lazy(() =>
   import('@/features/seguridad/CambioClavePage').then((m) => ({ default: m.CambioClavePage })),
 )
+const CanonicoPage = lazy(() =>
+  import('@/features/canonico/CanonicoPage').then((m) => ({ default: m.CanonicoPage })),
+)
 
 function lazyPage(element: React.ReactNode) {
   return <Suspense fallback={<div className="p-8 text-muted">Cargando...</div>}>{element}</Suspense>
@@ -73,6 +76,7 @@ export const router = createBrowserRouter([
       { path: 'seguridad-usuarios', element: lazyPage(<SeguridadUsuariosPage />) },
       { path: 'seguridad-asignacion-oficina', element: lazyPage(<SeguridadAsignacionOficinaPage />) },
       { path: 'seguridad-cambio-clave', element: lazyPage(<SeguridadCambioClavePage />) },
+      { path: 'canonico', element: lazyPage(<CanonicoPage />) },
       { path: 'construccion/:modulo', element: lazyPage(<ConstruccionPage />) },
       { path: '*', element: <DashboardPage /> },
     ],
