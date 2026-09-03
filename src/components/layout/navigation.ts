@@ -42,6 +42,7 @@ export type NavRoute =
   | 'seguridad-asignacion-oficina'
   | 'seguridad-cambio-clave'
   | 'canonico'
+  | 'specification-package'
   | 'construccion'
 
 export interface NavLeaf {
@@ -237,6 +238,7 @@ export const NAV_TREE: NavNode[] = [
         children: [
           { label: 'Explorador Canónico', route: 'canonico' },
           { label: 'Validación Canónica', route: 'canonico', subview: 'validacion' },
+          { label: 'Specification Package', route: 'specification-package' },
         ],
       },
     ],
