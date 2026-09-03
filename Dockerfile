@@ -8,14 +8,10 @@ FROM node:22-alpine AS build
 
 WORKDIR /app
 
-# La key de DeepSeek se inyecta en BUILD TIME desde un secret de GitHub
-# (nunca se versiona ni se copia desde .env del desarrollador)
-ARG VITE_DEEPSEEK_API_KEY
-ENV VITE_DEEPSEEK_API_KEY=$VITE_DEEPSEEK_API_KEY
-
-# URL pública de Transversales consumida por el cliente de autenticación.
-ARG VITE_TRANSVERSALES_API_URL=http://localhost:8080
-ENV VITE_TRANSVERSALES_API_URL=$VITE_TRANSVERSALES_API_URL
+# URL del backend de Cygnus Next consumida por autenticación y datos; la
+# despliega el servidor como build argument, no GitHub Actions.
+ARG VITE_CYGNUS_API_URL=http://localhost:8080
+ENV VITE_CYGNUS_API_URL=$VITE_CYGNUS_API_URL
 
 # Instalar dependencias primero (aprovecha cache de capas)
 COPY package.json package-lock.json ./

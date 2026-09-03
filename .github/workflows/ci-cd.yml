@@ -1,28 +1,22 @@
-# ============================================================
-# Cygnus Next — CI/CD automático
-# Push a master → build → imagen GHCR (sha-immutable) → deploy SSH → health check
-# ============================================================
-
-name: deploy-cygnus-next
+name: Cygnus Next frontend CI
 
 on:
   push:
+    branches: [master]
+  pull_request:
     branches: [master]
   workflow_dispatch:
 
 permissions:
   contents: read
-  packages: write
 
-env:
-  SOLUTION_NAME: cygnus-next
-  SOLUTION_PORT: 8100
-  SOLUTION_PUBLIC_HOST: cygnus-next.129-158-213-189.nip.io
-  SOLUTION_PUBLIC_URL: https://cygnus-next.129-158-213-189.nip.io/
-  TRANSVERSALES_API_URL: https://transversales.129-158-213-189.nip.io
+concurrency:
+  group: cygnus-next-frontend-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build-and-deploy:
+  validate:
+    name: Validate React frontend
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -37,206 +31,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Typecheck & build
+      - name: Typecheck and build
         env:
-          VITE_TRANSVERSALES_API_URL: ${{ env.TRANSVERSALES_API_URL }}
+          # The active server-side deploy injects the configured API URL at
+          # image-build time. CI validates that the application compiles
+          # without exposing deployment or provider secrets.
+          VITE_CYGNUS_API_URL: https://api.invalid.example
         run: npm run build
-
-      # ---------- Imagen inmutable etiquetada con el SHA del commit ----------
-      - id: image-name
-        name: Normalize image name (GHCR requiere minúsculas)
-        run: echo "image_name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.image-name.outputs.image_name }}:sha-${{ github.sha }}
-          build-args: |
-            VITE_DEEPSEEK_API_KEY=${{ secrets.VITE_DEEPSEEK_API_KEY }}
-            VITE_TRANSVERSALES_API_URL=${{ env.TRANSVERSALES_API_URL }}
-
-      # ---------- SSH al servidor ----------
-      - name: Configure SSH
-        env:
-          DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
-        run: |
-          install -m 700 -d "$HOME/.ssh"
-          printf '%s\n' "$DEPLOY_KEY" > "$HOME/.ssh/ebk-deploy"
-          chmod 600 "$HOME/.ssh/ebk-deploy"
-          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
-
-      - name: Deploy to server
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          IMAGE: ${{ steps.image-name.outputs.image_name }}:sha-${{ github.sha }}
-        run: |
-          ssh -i "$HOME/.ssh/ebk-deploy" -o IdentitiesOnly=yes \
-            "$DEPLOY_USER@$DEPLOY_HOST" \
-            "SOLUTION_NAME='$SOLUTION_NAME' SOLUTION_PORT='$SOLUTION_PORT' IMAGE='$IMAGE' PUBLIC_HOST='$SOLUTION_PUBLIC_HOST' bash -s" <<'REMOTE'
-          set -Eeuo pipefail
-
-          container="ebk-solution-$SOLUTION_NAME"
-          nginx_available="/etc/nginx/sites-available/$SOLUTION_NAME.conf"
-          nginx_enabled="/etc/nginx/sites-enabled/$SOLUTION_NAME.conf"
-          previous_image="$(sudo docker inspect --format '{{.Config.Image}}' "$container" 2>/dev/null || true)"
-
-          # El puerto de la solución queda cerrado al exterior. Nginx, que ya
-          # atiende el tráfico público, es el único componente expuesto.
-          cert_dir="/etc/letsencrypt/live/$PUBLIC_HOST"
-          if [ -f "$cert_dir/fullchain.pem" ] && [ -f "$cert_dir/privkey.pem" ]; then
-              sudo tee "/tmp/$SOLUTION_NAME.nginx" >/dev/null <<NGINX
-          server {
-              listen 80;
-              listen [::]:80;
-              server_name $PUBLIC_HOST;
-              return 301 https://$PUBLIC_HOST\$request_uri;
-          }
-
-          server {
-              listen 443 ssl;
-              listen [::]:443 ssl;
-              server_name $PUBLIC_HOST;
-              ssl_certificate $cert_dir/fullchain.pem;
-              ssl_certificate_key $cert_dir/privkey.pem;
-
-              location / {
-                  proxy_pass http://127.0.0.1:$SOLUTION_PORT;
-                  proxy_http_version 1.1;
-                  proxy_set_header Host \$host;
-                  proxy_set_header X-Real-IP \$remote_addr;
-                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-                  proxy_set_header X-Forwarded-Proto \$scheme;
-              }
-          }
-          NGINX
-          else
-              sudo tee "/tmp/$SOLUTION_NAME.nginx" >/dev/null <<NGINX
-          server {
-              listen 80;
-              listen [::]:80;
-              server_name $PUBLIC_HOST;
-
-              location / {
-                  proxy_pass http://127.0.0.1:$SOLUTION_PORT;
-                  proxy_http_version 1.1;
-                  proxy_set_header Host \$host;
-                  proxy_set_header X-Real-IP \$remote_addr;
-                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-                  proxy_set_header X-Forwarded-Proto \$scheme;
-              }
-          }
-          NGINX
-          fi
-          sudo install -o root -g root -m 644 "/tmp/$SOLUTION_NAME.nginx" "$nginx_available"
-          sudo ln -sfn "$nginx_available" "$nginx_enabled"
-          sudo nginx -t
-          sudo systemctl reload nginx
-
-          # El hostname debe tener un certificado propio. Sin esta etapa, el
-          # tráfico HTTPS cae en el virtual host por defecto del backend de
-          # control y termina mostrando su Whitelabel 404.
-          if ! command -v certbot >/dev/null 2>&1 || \
-              ! sudo certbot plugins 2>/dev/null | grep -Eq '(^|[[:space:]])nginx([[:space:]]|$)'; then
-              echo "Instalando certbot y el plugin Nginx..."
-              sudo apt-get update -qq
-              sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq certbot python3-certbot-nginx
-          fi
-          if ! sudo certbot plugins 2>/dev/null | grep -Eq '(^|[[:space:]])nginx([[:space:]]|$)'; then
-              echo "El plugin Nginx de certbot no quedó disponible en el servidor." >&2
-              exit 1
-          fi
-          sudo certbot --nginx \
-              --non-interactive \
-              --agree-tos \
-              --register-unsafely-without-email \
-              --keep-until-expiring \
-              --redirect \
-              -d "$PUBLIC_HOST"
-          sudo nginx -t
-          sudo systemctl reload nginx
-
-          sudo docker pull "$IMAGE"
-          sudo docker rm -f "$container" >/dev/null 2>&1 || true
-
-          rollback() {
-              sudo docker logs --tail 120 "$container" || true
-              sudo docker rm -f "$container" >/dev/null 2>&1 || true
-              if [ -n "$previous_image" ]; then
-                  echo "Restaurando imagen anterior: $previous_image"
-                  sudo docker run -d \
-                      --name "$container" \
-                      --restart unless-stopped \
-                      --label "com.ebk.solution=$SOLUTION_NAME" \
-                      --label com.ebk.solution.type=html \
-                      --label "com.ebk.solution.image=$previous_image" \
-                      --cpus 1.00 \
-                      --memory 768m \
-                      -p "127.0.0.1:${SOLUTION_PORT}:80" \
-                      "$previous_image" >/dev/null || true
-              fi
-          }
-
-          if ! sudo docker run -d \
-              --name "$container" \
-              --restart unless-stopped \
-              --label "com.ebk.solution=$SOLUTION_NAME" \
-              --label com.ebk.solution.type=html \
-              --label "com.ebk.solution.image=$IMAGE" \
-              --cpus 1.00 \
-              --memory 768m \
-              -p "127.0.0.1:${SOLUTION_PORT}:80" \
-              "$IMAGE" >/dev/null; then
-              echo "No se pudo iniciar $container; el puerto puede estar ocupado en el servidor." >&2
-              rollback
-              exit 1
-          fi
-
-          for i in $(seq 1 12); do
-              code="$(curl -sS -o /dev/null -w '%{http_code}' \
-                  --connect-timeout 3 --max-time 8 \
-                  "http://127.0.0.1:${SOLUTION_PORT}/" || true)"
-              if [ "$code" = "200" ]; then
-                  echo "Health local OK: http://127.0.0.1:${SOLUTION_PORT}/ (HTTP $code)"
-                  exit 0
-              fi
-              echo "Health local attempt $i/12: HTTP $code, waiting..."
-              sleep 5
-          done
-
-          echo "Health local failed — rolling back" >&2
-          rollback
-          exit 1
-          REMOTE
-
-      # ---------- Health check público a través de Nginx ----------
-      - name: Health check through Nginx
-        env:
-          SOLUTION_PUBLIC_URL: ${{ env.SOLUTION_PUBLIC_URL }}
-        run: |
-          for i in $(seq 1 12); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' \
-              --connect-timeout 5 --max-time 10 \
-              "$SOLUTION_PUBLIC_URL" || true)
-            if [ "$code" = "200" ]; then
-              echo "Health OK: $SOLUTION_PUBLIC_URL (HTTP $code)"
-              exit 0
-            fi
-            echo "Attempt $i/12: HTTP $code, waiting..."
-            sleep 5
-          done
-          echo "Health check through Nginx failed; el contenedor queda disponible para diagnóstico." >&2
-          exit 1
-
-      - name: Deployment URL
-        run: echo "✅ Desplegado en $SOLUTION_PUBLIC_URL"
