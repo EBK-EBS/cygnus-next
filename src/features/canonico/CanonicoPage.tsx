@@ -14,6 +14,7 @@ import {
   Search,
   ChevronRight,
   Database,
+  ShieldCheck,
 } from 'lucide-react'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { DataTable, type Column } from '@/components/ui/DataTable'
@@ -28,17 +29,20 @@ import type {
   ProductHolder,
   TransactionType,
   Voucher,
+  VoucherLine,
   Transaction,
   TransactionEntry,
   Balance,
   CanonicoStats,
   EntidadCanonica,
 } from './types'
+import { ValidacionPanel } from './components/ValidacionPanel'
 
-type TabId = EntidadCanonica | 'resumen'
+type TabId = EntidadCanonica | 'resumen' | 'validacion'
 
 const TABS: Array<{ id: TabId; label: string; icon: typeof Building2 }> = [
   { id: 'resumen', label: 'Resumen', icon: Scale },
+  { id: 'validacion', label: 'Validación', icon: ShieldCheck },
   { id: 'tenant', label: 'Tenants', icon: Building2 },
   { id: 'business_person', label: 'Personas', icon: Users },
   { id: 'product_type', label: 'Tipos Producto', icon: Package },
@@ -84,6 +88,7 @@ export function CanonicoPage() {
   const [titulares, setTitulares] = useState<ProductHolder[]>([])
   const [tiposTransaccion, setTiposTransaccion] = useState<TransactionType[]>([])
   const [comprobantes, setComprobantes] = useState<Voucher[]>([])
+  const [lineasComprobante, setLineasComprobante] = useState<VoucherLine[]>([])
   const [transacciones, setTransacciones] = useState<Transaction[]>([])
   const [movimientos, setMovimientos] = useState<TransactionEntry[]>([])
   const [saldos, setSaldos] = useState<Balance[]>([])
@@ -94,7 +99,7 @@ export function CanonicoPage() {
   useEffect(() => {
     async function cargar() {
       setLoading(true)
-      const [s, ten, per, tp, pr, ti, tt, co, tr, mo, sa] = await Promise.all([
+      const [s, ten, per, tp, pr, ti, tt, co, lc, tr, mo, sa] = await Promise.all([
         canonicoService.obtenerEstadisticas(),
         canonicoService.listarTenants(),
         canonicoService.listarPersonas(),
@@ -103,6 +108,7 @@ export function CanonicoPage() {
         canonicoService.listarTitulares(),
         canonicoService.listarTiposTransaccion(),
         canonicoService.listarComprobantes(),
+        canonicoService.listarLineasComprobante(),
         canonicoService.listarTransacciones(),
         canonicoService.listarMovimientos(),
         canonicoService.listarSaldos(),
@@ -115,6 +121,7 @@ export function CanonicoPage() {
       setTitulares(ti)
       setTiposTransaccion(tt)
       setComprobantes(co)
+      setLineasComprobante(lc)
       setTransacciones(tr)
       setMovimientos(mo)
       setSaldos(sa)
@@ -413,6 +420,25 @@ export function CanonicoPage() {
     const busqueda = textoBusqueda.toLowerCase()
 
     switch (activeTab) {
+      case 'validacion':
+        return (
+          <ValidacionPanel
+            datos={{
+              tenants,
+              personas,
+              tiposProducto,
+              productos,
+              titulares,
+              tiposTransaccion,
+              comprobantes,
+              lineasComprobante,
+              transacciones,
+              movimientos,
+              saldos,
+            }}
+          />
+        )
+
       case 'tenant':
         return (
           <Card>
@@ -542,7 +568,7 @@ export function CanonicoPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-ink">Modelo Canónico Transversal</h1>
-          <p className="text-sm text-muted">Especificación CACSA — 11 entidades · 3FN · Aislamiento por tenant</p>
+          <p className="text-sm text-muted">Especificación CACSA — 11 entidades · 3FN · Aislamiento por tenant · 10 criterios de validación</p>
         </div>
       </div>
 
@@ -568,8 +594,8 @@ export function CanonicoPage() {
         })}
       </div>
 
-      {/* Filtros (solo en vista de entidad, no en resumen) */}
-      {activeTab !== 'resumen' && (
+      {/* Filtros (solo en vista de entidad, no en resumen ni validación) */}
+      {activeTab !== 'resumen' && activeTab !== 'validacion' && (
         <div className="flex items-center gap-3">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />

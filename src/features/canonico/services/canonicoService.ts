@@ -83,9 +83,9 @@ class CanonicoService {
     return tenantId ? this.comprobantes.filter((v) => v.tenantId === tenantId) : this.comprobantes
   }
 
-  async listarLineasComprobante(voucherId: number): Promise<VoucherLine[]> {
+  async listarLineasComprobante(voucherId?: number): Promise<VoucherLine[]> {
     await this.delay(200)
-    return this.lineasComprobante.filter((l) => l.voucherId === voucherId)
+    return voucherId ? this.lineasComprobante.filter((l) => l.voucherId === voucherId) : this.lineasComprobante
   }
 
   async listarTransacciones(tenantId?: number): Promise<Transaction[]> {

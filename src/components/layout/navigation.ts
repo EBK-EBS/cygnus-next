@@ -236,6 +236,7 @@ export const NAV_TREE: NavNode[] = [
         icon: Database,
         children: [
           { label: 'Explorador Canónico', route: 'canonico' },
+          { label: 'Validación Canónica', route: 'canonico', subview: 'validacion' },
         ],
       },
     ],
