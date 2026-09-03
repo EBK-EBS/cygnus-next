@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { KeyRound, Save } from 'lucide-react'
+import { ApiError } from '@/lib/auth'
 import { useUIStore } from '@/store/uiStore'
 import { useSeguridadStore } from './store/seguridadStore'
 import { FormField, inputClass } from './components/FormField'
@@ -7,24 +8,27 @@ import { LookupField } from './components/LookupField'
 
 /** Cambio de Clave — actualiza la contraseña de acceso de un usuario del sistema. */
 export function CambioClavePage() {
-  const { usuarios, setClaveUsuario } = useSeguridadStore()
+  const { usuarios, usuariosLoaded, loadUsuarios, setClaveUsuario } = useSeguridadStore()
   const showToast = useUIStore((s) => s.showToast)
 
   const [usuarioId, setUsuarioId] = useState<number | null>(usuarios[0]?.id ?? null)
-  const [claveActual, setClaveActual] = useState('')
   const [claveNueva, setClaveNueva] = useState('')
   const [confirmacion, setConfirmacion] = useState('')
   const [error, setError] = useState('')
 
+  useEffect(() => {
+    if (!usuariosLoaded) void loadUsuarios().catch(() => undefined)
+  }, [loadUsuarios, usuariosLoaded])
+
+  useEffect(() => {
+    if (usuarioId == null && usuarios[0]) setUsuarioId(usuarios[0].id)
+  }, [usuarioId, usuarios])
+
   const usuario = usuarios.find((u) => u.id === usuarioId)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!usuario) return
-    if (claveActual !== usuario.clave) {
-      setError('La clave actual no es correcta.')
-      return
-    }
     if (!claveNueva) {
       setError('Ingrese la nueva clave.')
       return
@@ -33,12 +37,15 @@ export function CambioClavePage() {
       setError('La nueva clave y la confirmación no coinciden.')
       return
     }
-    setClaveUsuario(usuario.id, claveNueva)
-    setError('')
-    setClaveActual('')
-    setClaveNueva('')
-    setConfirmacion('')
-    showToast('Clave actualizada correctamente.')
+    try {
+      await setClaveUsuario(usuario.id, claveNueva)
+      setError('')
+      setClaveNueva('')
+      setConfirmacion('')
+      showToast('Clave actualizada correctamente en la base de datos.')
+    } catch (reason) {
+      setError(reason instanceof ApiError ? reason.message : 'No se pudo actualizar la clave.')
+    }
   }
 
   return (
@@ -47,7 +54,7 @@ export function CambioClavePage() {
         <div className="flex items-center gap-2.5 text-2xl font-bold text-brand-500">
           <KeyRound className="size-6" /> Cambio de Clave
         </div>
-        <p className="text-sm text-muted">Actualice la clave de acceso de un usuario del sistema.</p>
+        <p className="text-sm text-muted">Actualice la clave de acceso de un usuario del sistema. Se almacenará con el formato seguro configurado por el backend.</p>
       </div>
 
       <div className="max-w-xl rounded-lg border border-line bg-card p-5 shadow-soft">
@@ -76,11 +83,7 @@ export function CambioClavePage() {
               </FormField>
             </div>
 
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted">Datos de la Nueva Clave</div>
-
-            <FormField label="Clave Actual">
-              <input type="password" className={inputClass} value={claveActual} onChange={(e) => setClaveActual(e.target.value)} />
-            </FormField>
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted">Nueva Clave</div>
             <FormField label="Nueva Clave">
               <input type="password" className={inputClass} value={claveNueva} onChange={(e) => setClaveNueva(e.target.value)} />
             </FormField>

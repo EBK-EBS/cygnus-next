@@ -2,13 +2,17 @@
 
 ## Desarrollo local
 
-Transversales se ejecuta en `http://localhost:8081` y Cygnus Next en
-`http://localhost:5174`, evitando el puerto utilizado por Civil Alpha.
+El backend de Cygnus Next se ejecuta en `http://localhost:8080` y la interfaz
+en `http://localhost:5174`. La autenticación y los usuarios se consultan en la
+base de datos configurada por el backend; no se necesita levantar otro servicio
+para iniciar sesión.
 
 ```powershell
-# Terminal 1 — Transversales (Java 21)
-cd C:\Users\User.admin\Documents\EBS\Transversales
-mvn spring-boot:run
+# Terminal 1 — Backend Cygnus Next (Java 17+)
+cd 'C:\Users\User.admin\Documents\EBS\Cygnus Next\cygnus-next-backend'
+$env:SPRING_PROFILES_ACTIVE="demo"
+$env:CYGNUS_AUTH_JWT_SECRET_BASE64="MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI="
+.\mvnw.cmd spring-boot:run
 
 # Terminal 2 — Cygnus Next
 cd 'C:\Users\User.admin\Documents\EBS\Cygnus Next\interfaz'
@@ -18,11 +22,12 @@ npm run dev
 Abre `http://localhost:5174/` y usa estas credenciales de prueba:
 
 ```text
-usuario: cygnus.test
+usuario: sysadm
 contraseña: CygnusNext123!
 ```
 
-El tenant `cygnus-next` se envía internamente y no se muestra en pantalla.
+El login usa `USUARIOS.C_LOGIN` y valida `USUARIOS.C_CLAVE` mediante el formato
+configurado en el backend.
 
 # React + TypeScript + Vite
 

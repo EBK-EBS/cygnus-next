@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { ApiError, CYGNUS_NEXT_TENANT_CODE } from '@/lib/auth'
+import { ApiError } from '@/lib/auth'
 import { useAuth } from '@/components/auth/auth-context'
 
 const LOGO_SYMBOL = '/images/LogoSimboloCygnusNext.png'
@@ -30,7 +30,7 @@ export function LoginPage() {
     setError(null)
     setSubmitting(true)
     try {
-      await login({ tenantCode: CYGNUS_NEXT_TENANT_CODE, username: username.trim(), password })
+      await login({ username: username.trim(), password })
       navigate(getDestination(location.state), { replace: true })
     } catch (reason) {
       if (reason instanceof ApiError && reason.status === 401) {
@@ -62,7 +62,7 @@ export function LoginPage() {
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-brand-100">Estado de cuenta 360°</p>
             <h1 className="max-w-xs text-3xl font-semibold leading-tight">Toda tu operación, en un mismo lugar.</h1>
             <p className="mt-5 max-w-sm text-sm leading-relaxed text-brand-100">
-              Accede a la información de tu organización con una sesión segura administrada por Transversales.
+              Accede a la información de tu organización con una sesión segura administrada por Cygnus Next.
             </p>
           </div>
           <p className="text-xs text-brand-100/80">Plataforma Cygnus Next · v17.1.7.1.</p>

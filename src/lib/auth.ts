@@ -3,9 +3,7 @@ export interface AuthUser {
   username: string
   displayName: string
   enabled: boolean
-  tenantCode: string
   roles: string[]
-  permissions: string[]
 }
 
 interface LoginResponse {
@@ -16,12 +14,9 @@ interface LoginResponse {
 }
 
 export interface LoginCredentials {
-  tenantCode: string
   username: string
   password: string
 }
-
-export const CYGNUS_NEXT_TENANT_CODE = 'cygnus-next'
 
 interface RequestOptions extends RequestInit {
   token?: string | null
@@ -37,8 +32,8 @@ export class ApiError extends Error {
   }
 }
 
-const ACCESS_TOKEN_KEY = 'transversales.accessToken'
-const configuredBaseUrl = import.meta.env.VITE_TRANSVERSALES_API_URL?.trim()
+const ACCESS_TOKEN_KEY = 'cygnus.next.accessToken'
+const configuredBaseUrl = import.meta.env.VITE_CYGNUS_API_URL?.trim()
 const API_BASE_URL = (configuredBaseUrl || 'http://localhost:8080').replace(/\/$/, '')
 
 let unauthorizedHandler: (() => void) | undefined
@@ -86,7 +81,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   try {
     response = await fetch(`${API_BASE_URL}${path}`, { ...requestInit, headers })
   } catch {
-    throw new ApiError('No se pudo conectar con el servicio de Transversales.', 0)
+    throw new ApiError('No se pudo conectar con el backend de Cygnus Next.', 0)
   }
 
   if (response.status === 401 && token) unauthorizedHandler?.()

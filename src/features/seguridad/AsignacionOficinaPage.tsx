@@ -7,12 +7,16 @@ import { LookupField } from './components/LookupField'
 
 /** Asignación de Usuarios a Oficina — marca qué usuarios tienen acceso a cada oficina. */
 export function AsignacionOficinaPage() {
-  const { oficinas, usuarios, oficinaUsuarios, setOficinaUsuarios } = useSeguridadStore()
+  const { oficinas, usuarios, usuariosLoaded, loadUsuarios, oficinaUsuarios, setOficinaUsuarios } = useSeguridadStore()
   const showToast = useUIStore((s) => s.showToast)
 
   const [oficinaId, setOficinaId] = useState<number | null>(oficinas[0]?.id ?? null)
   const [checkedIds, setCheckedIds] = useState<number[]>(oficinaId != null ? oficinaUsuarios[oficinaId] ?? [] : [])
   const [search, setSearch] = useState('')
+
+  useEffect(() => {
+    if (!usuariosLoaded) void loadUsuarios().catch(() => undefined)
+  }, [loadUsuarios, usuariosLoaded])
 
   useEffect(() => {
     setCheckedIds(oficinaId != null ? oficinaUsuarios[oficinaId] ?? [] : [])

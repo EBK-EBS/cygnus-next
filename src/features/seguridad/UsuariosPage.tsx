@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Pencil, Plus, Save, Search, Trash2, UserCog } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { DataTable } from '@/components/ui/DataTable'
@@ -9,6 +9,7 @@ import { FormField, inputClass } from './components/FormField'
 import { LookupField } from './components/LookupField'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import type { Usuario } from './types'
+import { ApiError } from '@/lib/auth'
 
 const emptyUsuario: Omit<Usuario, 'id' | 'codigo'> = {
   personaId: null,
@@ -32,14 +33,32 @@ type UsuarioForm = Omit<Usuario, 'id' | 'codigo'> & { id?: number; codigo?: numb
 
 /** Administración de Usuarios — alta, edición y baja de accesos del sistema. */
 export function UsuariosPage() {
-  const { usuarios, personas, tiposUsuario, oficinas, departamentos, perfiles, saveUsuario, deleteUsuario } = useSeguridadStore()
+  const {
+    usuarios,
+    personas,
+    tiposUsuario,
+    oficinas,
+    departamentos,
+    perfiles,
+    usuariosLoading,
+    usuariosLoaded,
+    usuariosError,
+    loadUsuarios,
+    saveUsuario,
+    deleteUsuario,
+  } = useSeguridadStore()
   const showToast = useUIStore((s) => s.showToast)
 
   const [search, setSearch] = useState('')
   const [modalUsuario, setModalUsuario] = useState<UsuarioForm | null>(null)
   const [confirmClave, setConfirmClave] = useState('')
   const [formError, setFormError] = useState('')
+  const [pageError, setPageError] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<Usuario | null>(null)
+
+  useEffect(() => {
+    if (!usuariosLoaded) void loadUsuarios().catch(() => undefined)
+  }, [loadUsuarios, usuariosLoaded])
 
   const nombreOficina = (id: number | null) => oficinas.find((o) => o.id === id)?.nombre ?? '—'
   const nombrePerfil = (codigo: number | null) => perfiles.find((p) => p.codigo === codigo)?.nombre ?? '—'
@@ -54,37 +73,51 @@ export function UsuariosPage() {
     setModalUsuario({ ...emptyUsuario })
     setConfirmClave('')
     setFormError('')
+    setPageError('')
   }
 
   const openEdit = (usuario: Usuario) => {
     setModalUsuario({ ...usuario })
     setConfirmClave(usuario.clave)
     setFormError('')
+    setPageError('')
   }
 
   const closeModal = () => setModalUsuario(null)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!modalUsuario) return
     if (!modalUsuario.id && !modalUsuario.clave) {
       setFormError('La clave es obligatoria para un usuario nuevo.')
       return
     }
+    if (!modalUsuario.personaId || !modalUsuario.tipoUsuarioId || !modalUsuario.oficinaId || !modalUsuario.fechaIngreso || !modalUsuario.perfilCodigo) {
+      setFormError('Persona, tipo, oficina, perfil y fecha de ingreso son obligatorios.')
+      return
+    }
     if (modalUsuario.clave !== confirmClave) {
       setFormError('La clave y la confirmación no coinciden.')
       return
     }
-    saveUsuario(modalUsuario)
-    showToast('Usuario guardado correctamente.')
-    closeModal()
+    try {
+      await saveUsuario(modalUsuario)
+      showToast('Usuario guardado correctamente en la base de datos.')
+      closeModal()
+    } catch (reason) {
+      setFormError(reason instanceof ApiError ? reason.message : reason instanceof Error ? reason.message : 'No se pudo guardar el usuario.')
+    }
   }
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!deleteTarget) return
-    deleteUsuario(deleteTarget.id)
-    showToast('Usuario eliminado.')
-    setDeleteTarget(null)
+    try {
+      await deleteUsuario(deleteTarget.id)
+      showToast('Usuario inactivado en la base de datos.')
+      setDeleteTarget(null)
+    } catch (reason) {
+      setPageError(reason instanceof ApiError ? reason.message : reason instanceof Error ? reason.message : 'No se pudo inactivar el usuario.')
+    }
   }
 
   return (
@@ -95,6 +128,9 @@ export function UsuariosPage() {
         </div>
         <p className="text-sm text-muted">Cree, edite y gestione el acceso de los usuarios del sistema.</p>
       </div>
+
+      {usuariosError && <div role="alert" className="rounded-lg border border-danger/25 bg-danger/10 px-3.5 py-3 text-sm text-danger">{usuariosError}</div>}
+      {pageError && <div role="alert" className="rounded-lg border border-danger/25 bg-danger/10 px-3.5 py-3 text-sm text-danger">{pageError}</div>}
 
       <div className="flex items-center justify-between gap-3">
         <div className="relative max-w-sm flex-1">
@@ -137,7 +173,7 @@ export function UsuariosPage() {
           },
         ]}
         rows={filtered}
-        emptyMessage="No hay usuarios registrados."
+        emptyMessage={usuariosLoading ? 'Cargando usuarios desde la base de datos...' : 'No hay usuarios registrados.'}
         className="rounded-lg border border-line bg-card shadow-soft"
       />
 
@@ -196,7 +232,7 @@ export function UsuariosPage() {
               </FormField>
 
               <FormField label="Login">
-                <input type="text" required className={inputClass} value={modalUsuario.login} onChange={(e) => setModalUsuario({ ...modalUsuario, login: e.target.value })} />
+                <input type="text" required readOnly={!!modalUsuario.id} className={inputClass} value={modalUsuario.login} onChange={(e) => setModalUsuario({ ...modalUsuario, login: e.target.value })} />
               </FormField>
               <FormField label="Perfil">
                 <select
@@ -278,7 +314,7 @@ export function UsuariosPage() {
       <ConfirmDialog
         open={!!deleteTarget}
         title="Eliminar Usuario"
-        message={`¿Está seguro que desea eliminar al usuario "${deleteTarget?.nombre}"? Esta acción no se puede deshacer.`}
+        message={`¿Está seguro que desea inactivar al usuario "${deleteTarget?.nombre}"? Se conservará el registro y se bloqueará su acceso.`}
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />
