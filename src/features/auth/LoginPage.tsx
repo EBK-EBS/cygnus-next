@@ -54,9 +54,9 @@ export function LoginPage() {
         <div className="hidden flex-col justify-between bg-brand-600 p-10 text-white md:flex">
           <div>
             <div className="mb-10 flex items-center gap-3">
-              <img src={LOGO_SYMBOL} alt="EBS SAS" className="h-11 w-11 object-contain" />
+              <img src={LOGO_SYMBOL} alt="CYGNUS NEXT" className="h-11 w-11 object-contain" />
               <span className="text-xl font-bold tracking-tight text-white">
-                EBS SAS
+                CYGNUS NEXT
               </span>
             </div>
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-brand-100">Estado de cuenta 360°</p>
@@ -65,14 +65,14 @@ export function LoginPage() {
               Accede a la información de tu organización con una sesión segura administrada por Transversales.
             </p>
           </div>
-          <p className="text-xs text-brand-100/80">Plataforma EBS SAS</p>
+          <p className="text-xs text-brand-100/80">Plataforma CYGNUS NEXT</p>
         </div>
 
         <div className="p-7 sm:p-10">
           <div className="mb-8 md:hidden">
             <div className="flex items-center gap-3">
-              <img src={LOGO_SYMBOL} alt="EBS SAS" className="h-10 w-10 object-contain" />
-              <img src={LOGO_NAME} alt="EBS SAS" className="h-5 max-w-[170px] object-contain" />
+              <img src={LOGO_SYMBOL} alt="CYGNUS NEXT" className="h-10 w-10 object-contain" />
+              <img src={LOGO_NAME} alt="CYGNUS NEXT" className="h-5 max-w-[170px] object-contain" />
             </div>
           </div>
 
@@ -117,7 +117,7 @@ export function LoginPage() {
               disabled={submitting}
               className="mt-2 rounded-lg bg-brand-500 px-4 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-wait disabled:opacity-60"
             >
-              {submitting ? 'Validando...' : 'Ingresar a EBS SAS'}
+              {submitting ? 'Validando...' : 'Ingresar a CYGNUS NEXT'}
             </button>
           </form>
 
@@ -126,7 +126,7 @@ export function LoginPage() {
           </p>
 
           <p className="mt-6 text-center text-xs font-semibold tracking-[0.2em] text-brand-500 uppercase">
-            EBS SAS
+            CYGNUS NEXT
           </p>
         </div>
       </section>
