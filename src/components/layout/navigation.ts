@@ -5,6 +5,7 @@ import {
   Building2,
   ChartPie,
   Coins,
+  Database,
   FileSearch,
   FolderOpen,
   Gauge,
@@ -40,6 +41,8 @@ export type NavRoute =
   | 'seguridad-usuarios'
   | 'seguridad-asignacion-oficina'
   | 'seguridad-cambio-clave'
+  | 'canonico'
+  | 'specification-package'
   | 'construccion'
 
 export interface NavLeaf {
@@ -229,6 +232,15 @@ export const NAV_TREE: NavNode[] = [
         icon: BookOpen,
         children: grp('Contabilidad'),
       },
+      {
+        label: 'Modelo Canónico',
+        icon: Database,
+        children: [
+          { label: 'Explorador Canónico', route: 'canonico' },
+          { label: 'Validación Canónica', route: 'canonico', subview: 'validacion' },
+          { label: 'Specification Package', route: 'specification-package' },
+        ],
+      },
     ],
   },
   {
@@ -402,4 +414,5 @@ export const NAV_ICONS: Record<string, LucideIcon> = {
   gauge: Gauge,
   bars: BarChart3,
   scroll: ScrollText,
+  database: Database,
 }
