@@ -124,6 +124,10 @@ export function LoginPage() {
           <p className="mt-7 text-center text-xs leading-relaxed text-muted">
             Tu sesión se mantiene activa solo en esta pestaña y expira según la política de seguridad de la plataforma.
           </p>
+
+          <p className="mt-6 text-center text-xs font-semibold tracking-[0.2em] text-brand-500 uppercase">
+            EBS
+          </p>
         </div>
       </section>
     </main>
